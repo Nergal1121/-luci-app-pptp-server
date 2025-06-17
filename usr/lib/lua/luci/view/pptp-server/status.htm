@@ -1,0 +1,16 @@
+<div class="cbi-value">
+    <label class="cbi-value-title"><%:PPTP Status%></label>
+    <div class="cbi-value-field">
+        <% if self.status.running then %>
+            <span style="color: green">●</span> <%:Running%> (PID: <%=self.status.pid%>)
+        <% else %>
+            <span style="color: red">●</span> <%:Stopped%>
+        <% end %>
+        <br>
+        <% if self.status.enabled then %>
+            <span style="color: green">●</span> <%:Enabled on boot%>
+        <% else %>
+            <span style="color: orange">●</span> <%:Disabled on boot%>
+        <% end %>
+    </div>
+</div>
