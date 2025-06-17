@@ -1,5 +1,4 @@
-module("luci.controller.pptpd", package.seeall)
-
+module("luci.controller.pptp-server", package.seeall) 
 function index()
     -- Проверяем наличие исполняемого файла pptpd
     if not nixio.fs.access("/usr/sbin/pptpd") then
@@ -120,21 +119,4 @@ function get_online_users()
     end
     
     return users
-end
-
--- Функция для страницы статуса (добавлена из первого скрипта)
-function service_status()
-    local sys = require "luci.sys"
-    local fs = require "nixio.fs"
-    
-    local pid = sys.exec("pgrep -x pptpd"):gsub("%s+", "")
-    local enabled = fs.access("/etc/rc.d/S60pptpd")
-    
-    local status = {
-        running = pid ~= "",
-        enabled = enabled,
-        pid = pid
-    }
-    
-    return status
 end
