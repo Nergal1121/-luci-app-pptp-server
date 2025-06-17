@@ -112,29 +112,6 @@ else
   end
 end
 
--- Обработка действий с сервисом
-function action_service()
-    local action = luci.http.formvalue("action")
-    local sys = require "luci.sys"
-    
-    if action == "start" then
-        sys.call("/etc/init.d/pptpd start >/dev/null 2>&1")
-    elseif action == "stop" then
-        sys.call("/etc/init.d/pptpd stop >/dev/null 2>&1")
-    elseif action == "restart" then
-        sys.call("/etc/init.d/pptpd restart >/dev/null 2>&1")
-    elseif action == "enable" then
-        sys.call("/etc/init.d/pptpd enable >/dev/null 2>&1")
-    elseif action == "disable" then
-        sys.call("/etc/init.d/pptpd disable >/dev/null 2>&1")
-    end
-    
-    -- Задержка для применения изменений
-    sys.call("sleep 1")
-    
-    luci.http.redirect(luci.dispatcher.build_url("admin/vpn/pptpd/service_status"))
-end
-
 -- Получение списка онлайн пользователей
 function get_online_users()
     local fs = require "nixio.fs"
