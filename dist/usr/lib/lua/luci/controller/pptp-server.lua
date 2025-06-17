@@ -8,7 +8,7 @@ function index()
     
     -- Создаем пункт меню в разделе "Сервисы"
     entry(
-        {"admin", "services", "pptp-server"}, -- Путь в меню
+        {"admin", "vpn", "pptp-server"}, -- Путь в меню
         cbi("pptp-server/pptp-server"),       -- Файл CBI-модели
         _("PPTP Server"),                     -- Локализованное название
         80                                    -- Порядковый номер в меню
