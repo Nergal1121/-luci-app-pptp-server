@@ -1,134 +1,122 @@
--- Подключаем необходимые библиотеки
-local uci = require "luci.model.uci".cursor()
-local sys = require "luci.sys"
-local util = require "luci.util"
-local init = require "luci.sys.init"
+mp = Map("pptpd", "PPTP Server", "")
 
--- Основной объект карты конфигурации
-mp = Map("pptpd", 
-    translate("PPTP VPN Server"), 
-    translate("Configure Point-to-Point Tunneling Protocol (PPTP) server")
-)
+s = mp:section(NamedSection, "pptpd", "vpn", "PPTP Service")
+s.anonymous = true  -- Исправлено anonymouse -> anonymous
 
--- Раздел основного сервиса
-local s = mp:section(NamedSection, "pptpd", "vpn", translate("Service Settings"))
-s.anonymous = true  -- Исправлена опечатка: было 'anonymouse'
+s:option(Flag, "enabled", translate("Enable"))
 
--- Опция включения сервиса
-local enabled = s:option(Flag, "enabled", translate("Enable Service"))
-enabled.default = "0"
-enabled.rmempty = false
-
--- Локальный IP-адрес сервера
-local localip = s:option(Value, "localip", translate("Server IP"))
+localip = s:option(Value, "localip", translate("Local IP"))
 localip.datatype = "ip4addr"
-localip.placeholder = "192.168.100.1"
 
--- Диапазон IP для клиентов
-local remoteip = s:option(Value, "remoteip", translate("Client IP Range"))
+remoteip = s:option(Value, "remoteip", translate("Remote IP"))
 remoteip.datatype = "string"
-remoteip.placeholder = "192.168.100.2-100"
 
--- Раздел для учетных записей
-local logins = mp:section(TypedSection, "login", translate("PPTP Accounts"))
+logins = mp:section(TypedSection, "login", "PPTP Logins")
 logins.addremove = true
-logins.anonymous = false  -- Показывать заголовки секций
-logins.template = "cbi/tblsection"  -- Шаблон для табличного вида
+logins.anonymous = true  -- Исправлено anonymouse -> anonymous
 
--- Поле имени пользователя
-local username = logins:option(Value, "username", translate("Username"))
+username = logins:option(Value, "username", translate("User name"))
 username.datatype = "string"
-username.placeholder = "user1"
 
--- Поле пароля (скрытый ввод)
-local password = logins:option(Value, "password", translate("Password"))
-password.password = true  -- Исправлено: скрывать ввод пароля
+password = logins:option(Value, "password", translate("Password"))
 password.datatype = "string"
 
--- Функция для проверки состояния сервиса
-local function get_service_status()
-    local pid = util.exec("pgrep -x pptpd"):match("%d+")
-    local running = pid and true or false
-    local enabled = init.enabled("pptpd")
-    
-    return {
-        running = running,
-        enabled = enabled,
-        pid = pid
-    }
-end
-
--- Раздел статуса сервиса
-local status_section = mp:section(SimpleSection)
-status_section.template = "pptp-server/status"  -- Использовать кастомный шаблон
-
--- Обработчик сохранения (добавляет правила фаервола)
 function mp.on_save(self)
-    local has_pptp_rule = false
-    local has_gre_rule = false
-    
-    -- Поиск существующих правил
-    uci:foreach("firewall", "rule",
-        function(s)
-            if s.name == "pptp_server_rule" then
-                has_pptp_rule = true
-            elseif s.name == "gre_server_rule" then
-                has_gre_rule = true
-            end
+    local cursor = luci.model.uci.cursor()
+    local have_pptp_rule = false
+    local have_gre_rule = false
+
+    cursor:foreach('firewall', 'rule', function(section)
+        if section.name == 'pptp' then
+            have_pptp_rule = true
+        elseif section.name == 'gre' then
+            have_gre_rule = true
         end
-    )
-    
-    -- Добавление недостающих правил
-    if not has_pptp_rule then
-        uci:section("firewall", "rule", "pptp_server_rule", {
-            name = "pptp_server_rule",
-            proto = "tcp",
-            dest_port = "1723",
-            target = "ACCEPT",
-            src = "wan"
-        })
+    end)
+
+    if not have_pptp_rule then
+        local pptp_rule_name = cursor:add('firewall', 'rule')
+        cursor:set('firewall', pptp_rule_name, 'name', 'pptp')
+        cursor:set('firewall', pptp_rule_name, 'target', 'ACCEPT')
+        cursor:set('firewall', pptp_rule_name, 'src', 'wan')
+        cursor:set('firewall', pptp_rule_name, 'proto', 'tcp')
+        cursor:set('firewall', pptp_rule_name, 'dest_port', 1723)
+        cursor:save('firewall')
+        cursor:commit('firewall')
     end
-    
-    if not has_gre_rule then
-        uci:section("firewall", "rule", "gre_server_rule", {
-            name = "gre_server_rule",
-            proto = "gre",
-            target = "ACCEPT",
-            src = "wan"
-        })
-    end
-    
-    -- Сохранение и применение изменений
-    if not has_pptp_rule or not has_gre_rule then
-        uci:save("firewall")
-        uci:commit("firewall")
-        sys.call("/etc/init.d/firewall reload >/dev/null 2>&1")
+
+    if not have_gre_rule then
+        local gre_rule_name = cursor:add('firewall', 'rule')
+        cursor:set('firewall', gre_rule_name, 'name', 'gre')
+        cursor:set('firewall', gre_rule_name, 'target', 'ACCEPT')
+        cursor:set('firewall', gre_rule_name, 'src', 'wan')
+        cursor:set('firewall', gre_rule_name, 'proto', 'gre')  -- Исправлено для протокола GRE
+        cursor:save('firewall')
+        cursor:commit('firewall')
     end
 end
 
--- Кнопки управления сервисом
-local control = status_section:option(Button)
-control.template = "pptp-server/control"  -- Кастомный шаблон для кнопок
-
--- Обработчики действий
-function control.start(self)
-    sys.init.start("pptpd")
-    luci.http.redirect(luci.dispatcher.build_url("admin/services/pptp-server"))
+-- Улучшенная проверка статуса сервиса
+function get_pptpd_status()
+    local status = {
+        running = (luci.sys.call("pidof pptpd >/dev/null") == 0),
+        enabled = nixio.fs.access("/etc/rc.d/S60pptpd")
+    }
+    
+    local msg = "PPTPD is "
+    msg = msg .. (status.running and "running" or "not running")
+    msg = msg .. " and "
+    msg = msg .. (status.enabled and "enabled" or "disabled")
+    msg = msg .. " on startup"
+    
+    return { status = msg }
 end
 
-function control.stop(self)
-    sys.init.stop("pptpd")
-    luci.http.redirect(luci.dispatcher.build_url("admin/services/pptp-server"))
+t = mp:section(Table, get_pptpd_status())
+t.anonymous = true
+t:option(DummyValue, "status", translate("PPTPD status"))
+
+local status = get_pptpd_status()
+
+if not status.running then
+    start = t:option(Button, "_start", translate("Start"))
+    start.inputstyle = "apply"
+    function start.write(self, section)
+        local message = luci.util.exec("/etc/init.d/pptpd start 2>&1")
+        luci.http.redirect(
+            luci.dispatcher.build_url("admin", "vpn", "pptp-server") ..
+            "?message=" .. luci.http.urlencode(message)
+        )
+    end
+else
+    stop = t:option(Button, "_stop", translate("Stop"))
+    stop.inputstyle = "reset"
+    function stop.write(self, section)
+        luci.util.exec("/etc/init.d/pptpd stop")
+        luci.http.redirect(
+            luci.dispatcher.build_url("admin", "vpn", "pptp-server")
+        )
+    end
 end
 
-function control.enable(self)
-    sys.init.enable("pptpd")
-    luci.http.redirect(luci.dispatcher.build_url("admin/services/pptp-server"))
-end
-
-function control.disable(self)
-    sys.init.disable("pptpd")
-    luci.http.redirect(luci.dispatcher.build_url("admin/services/pptp-server"))
+if status.enabled then
+    disable = t:option(Button, "_disable", translate("Disable from startup"))
+    disable.inputstyle = "remove"
+    function disable.write(self, section)
+        luci.util.exec("/etc/init.d/pptpd disable")
+        luci.http.redirect(
+            luci.dispatcher.build_url("admin", "vpn", "pptp-server")
+        )
+    end
+else
+    enable = t:option(Button, "_enable", translate("Enable on startup"))
+    enable.inputstyle = "apply"
+    function enable.write(self, section)
+        luci.util.exec("/etc/init.d/pptpd enable")
+        luci.http.redirect(
+            luci.dispatcher.build_url("admin", "vpn", "pptp-server")
+        )
+    end
 end
 
 return mp
