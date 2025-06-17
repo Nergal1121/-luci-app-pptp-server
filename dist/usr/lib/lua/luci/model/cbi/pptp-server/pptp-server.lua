@@ -11,7 +11,7 @@ mp = Map("pptpd",
 )
 
 -- Раздел основного сервиса
-local s = mp:section(NamedSection, "pptpd", "service", translate("Service Settings"))
+local s = mp:section(NamedSection, "pptpd", "vpn", translate("Service Settings"))
 s.anonymous = true  -- Исправлена опечатка: было 'anonymouse'
 
 -- Опция включения сервиса
