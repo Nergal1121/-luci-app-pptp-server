@@ -1,0 +1,17 @@
+<div class="cbi-page-actions">
+    <% if self.status.running then %>
+        <input type="button" class="cbi-button cbi-button-reset" 
+            onclick="location.href='<%=url%>/stop'" value="<%:Stop%>" />
+    <% else %>
+        <input type="button" class="cbi-button cbi-button-apply" 
+            onclick="location.href='<%=url%>/start'" value="<%:Start%>" />
+    <% end %>
+    
+    <% if self.status.enabled then %>
+        <input type="button" class="cbi-button cbi-button-remove" 
+            onclick="location.href='<%=url%>/disable'" value="<%:Disable%>" />
+    <% else %>
+        <input type="button" class="cbi-button cbi-button-add" 
+            onclick="location.href='<%=url%>/enable'" value="<%:Enable%>" />
+    <% end %>
+</div>
