@@ -1,0 +1,10 @@
+config service 'pptpd'
+        option enabled '1'
+        option localip '172.16.100.1'
+        option remoteip '172.16.100.245-250'
+        option logwtmp '0'
+
+config login 'client'
+        option username 'admin'
+        option password 'admin'
+        option enabled '1'
