@@ -43,36 +43,73 @@ function index()
 end
 
 -- Возвращает расширенный статус сервиса
-function action_status()
-    local sys = require "luci.sys"
-    local fs = require "nixio.fs"
-    
-    local pid = sys.exec("pgrep -x pptpd"):gsub("%s+", "")
-    local enabled = fs.access("/etc/rc.d/S60pptpd")
-    local running = pid ~= ""
-    
-    local status_text
-    if running then
-        status_text = translatef("PPTPD is running (PID: %s)", pid)
-    else
-        status_text = translate("PPTPD is stopped")
-    end
-    
-    if enabled then
-        status_text = status_text .. ", " .. translate("autostart enabled")
-    else
-        status_text = status_text .. ", " .. translate("autostart disabled")
-    end
-    
-    local data = {
-        running = running,
-        enabled = enabled,
-        pid = pid,
-        status_text = status_text
-    }
-    
-    luci.http.prepare_content("application/json")
-    luci.http.write_json(data)
+local pid = luci.util.exec("/usr/bin/pgrep pptpd")
+
+function pptpd_process_status()
+  local status = "PPTPD is not running now and "
+
+  if pid ~= "" then
+      status = "PPTPD is running with the PID " .. pid .. "and "
+  end
+
+  if nixio.fs.access("/etc/rc.d/S60pptpd") then
+    status = status .. "it's enabled on the startup"
+  else
+    status = status .. "it's disabled on the startup"
+  end
+
+  local status = { status=status }
+  local table = { pid=status }
+  return table
+end
+
+t = mp:section(Table, pptpd_process_status())
+t.anonymous = true
+
+t:option(DummyValue, "status", translate("PPTPD status"))
+
+if pid == "" then
+  start = t:option(Button, "_start", translate("Start"))
+  start.inputstyle = "apply"
+  function start.write(self, section)
+        message = luci.util.exec("/etc/init.d/pptpd start 2>&1")
+        luci.util.exec("sleep 4")
+        luci.http.redirect(
+                luci.dispatcher.build_url("admin", "services", "pptp-server") .. "?message=" .. message
+        )
+  end
+else
+  stop = t:option(Button, "_stop", translate("Stop"))
+  stop.inputstyle = "reset"
+  function stop.write(self, section)
+        luci.util.exec("/etc/init.d/pptpd stop")
+        luci.util.exec("sleep 4")
+        luci.http.redirect(
+                luci.dispatcher.build_url("admin", "services", "pptp-server")
+        )
+  end
+end
+
+if nixio.fs.access("/etc/rc.d/S60pptpd") then
+  disable = t:option(Button, "_disable", translate("Disable from startup"))
+  disable.inputstyle = "remove"
+  function disable.write(self, section)
+        luci.util.exec("/etc/init.d/pptpd disable")
+        luci.util.exec("sleep 1")
+        luci.http.redirect(
+                luci.dispatcher.build_url("admin", "services", "pptp-server")
+        )
+  end
+else
+  enable = t:option(Button, "_enable", translate("Enable on startup"))
+  enable.inputstyle = "apply"
+  function enable.write(self, section)
+        luci.util.exec("/etc/init.d/pptpd enable")
+        luci.util.exec("sleep 1")
+        luci.http.redirect(
+                luci.dispatcher.build_url("admin", "services", "pptp-server")
+        )
+  end
 end
 
 -- Обработка действий с сервисом
