@@ -15,6 +15,13 @@ function index()
     
     -- Создаём раздел VPN только если есть хотя бы один VPN-сервис
     if has_vpn then
-        entry({"admin", "vpn"}, firstchild(), _("VPN"), 45).dependent = false
+        entry({"admin", "vpn", "pptp-server", "status"}, call("action_status"))
+    function action_status()
+    local sys = require "luci.sys"
+    luci.http.prepare_content("application/json")
+    luci.http.write_json({
+        running = sys.process.info("pidof pptpd") and true or false,
+        enabled = sys.init.enabled("pptpd")
+    })
     end
 end
