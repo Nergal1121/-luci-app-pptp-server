@@ -1,19 +1,20 @@
-
 module("luci.controller.pptp-server", package.seeall)
 
 function index()
-	if not nixio.fs.access("/etc/config/pptpd") then
-		return
-	end
-	
-  entry({"admin", "vpn"}, firstchild(), "VPN", 45).dependent = false
-	entry({"admin", "vpn", "pptp-server"}, cbi("pptp-server/pptp-server"), _("PPTP VPN Server"), 80).dependent=false
-	entry({"admin", "vpn", "pptp-server","status"},call("act_status")).leaf=true
-end
-
-function act_status()
-  local e={}
-  e.running=luci.sys.call("pgrep pptpd >/dev/null")==0
-  luci.http.prepare_content("application/json")
-  luci.http.write_json(e)
+    local has_vpn = false
+    
+    -- Проверяем различные VPN-сервисы
+    if nixio.fs.access("/etc/config/pptpd") then
+        has_vpn = true
+        -- PPTP-сервер
+        entry({"admin", "vpn", "pptp-server"}, cbi("pptp-server/pptp-server"), _("PPTP VPN Server"), 80).dependent=false
+    end
+    
+    -- Здесь можно добавить проверки других VPN (OpenVPN, IPSec и т.д.)
+    -- if nixio.fs.access("/etc/config/openvpn") then ... end
+    
+    -- Создаём раздел VPN только если есть хотя бы один VPN-сервис
+    if has_vpn then
+        entry({"admin", "vpn"}, firstchild(), _("VPN"), 45).dependent = false
+    end
 end
