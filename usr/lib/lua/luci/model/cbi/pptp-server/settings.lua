@@ -37,7 +37,6 @@ o.default = "192.168.1.1"
 
 o = s:option(Flag, "mppe", translate("Enable MPPE Encryption"), translate("Allows 128-bit encrypted connection."))
 o.rmempty = false
-return m
 
 -- Статус сервиса
 local pid = luci.util.exec("/usr/bin/pgrep pptpd")
@@ -94,3 +93,4 @@ else
         luci.http.redirect(luci.dispatcher.build_url("admin/vpn/pptpd/settings"))
     end
 end
+return m
