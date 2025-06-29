@@ -13,3 +13,10 @@ cat << EOF >> /etc/sysctl.conf
 net.netfilter.nf_conntrack_helper=1
 EOF
 service sysctl restart
+
+# Configure firewall
+uci rename firewall.@zone[0]="lan"
+uci rename firewall.@zone[1]="wan"
+uci del_list firewall.lan.device="ppp+"
+uci add_list firewall.lan.device="ppp+"
+uci -q delete firewall.pptp
